@@ -1,3 +1,71 @@
+"""
+Semantic Memory Filter for Open WebUI
+
+This filter implements semantic memory - the storage and retrieval of factual
+knowledge, concepts, and learned information across conversations. Unlike episodic
+memory (which stores specific exchanges), semantic memory extracts and preserves
+facts, preferences, and conceptual understanding.
+
+Purpose:
+    Enable AI systems to:
+    - Learn facts about users persistently
+    - Build knowledge graphs of concepts
+    - Maintain factual consistency across sessions
+    - Accumulate domain expertise over time
+    
+    Example semantic memories:
+    - "User prefers Python over JavaScript"
+    - "User works in machine learning research"
+    - "User's timezone is America/Chicago"
+    - "User is interested in AI consciousness"
+
+Architecture:
+    Stores factual statements as semantic embeddings in Qdrant. Uses similarity
+    search to retrieve relevant knowledge when topics are discussed.
+
+Memory Format:
+    {
+        "memory_id": "se_m4n3o2p1",
+        "collection": "semantic",
+        "timestamp": "2025-11-04T20:30:00Z",
+        "content": {
+            "fact": "User studies psychiatry",
+            "context": "Mentioned during discussion about mental health",
+            "confidence": 0.95
+        }
+    }
+
+Key Differences from Episodic:
+    - Episodic: "On Tuesday, user said they like coffee"
+    - Semantic: "User likes coffee"
+    
+    - Episodic: Specific conversations and exchanges
+    - Semantic: Extracted facts and knowledge
+    
+    - Episodic: Temporal and contextual
+    - Semantic: Timeless and conceptual
+
+Usage:
+    This filter extracts factual information from conversations and stores it
+    for long-term knowledge accumulation. Retrieved facts inform future responses.
+
+Technical Details:
+    - Embedding Model: mixedbread-ai/mxbai-embed-large-v1 (1024 dims)
+    - Similarity: Cosine distance with higher threshold (0.6 vs 0.5)
+    - Extraction: Currently manual, future: automatic fact extraction
+    - Storage: Qdrant vector database
+
+Future Enhancements:
+    - Automatic fact extraction from conversations
+    - Confidence scoring for facts
+    - Contradiction detection and resolution
+    - Knowledge graph construction
+
+Author: dotjax
+License: GPL-3.0
+Repository: https://github.com/dotjax/open-webui-memory-layers
+"""
+
 from __future__ import annotations
 
 import time

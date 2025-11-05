@@ -1,3 +1,60 @@
+"""
+Emotional Memory Filter for Open WebUI
+
+This filter implements emotional memory - tracking and understanding affective
+states across conversations. It uses the GoEmotions model to classify messages
+into 28 distinct emotions, enabling empathetic and emotionally-aware responses.
+
+Emotions Tracked (28):
+    Positive: admiration, amusement, approval, caring, excitement, gratitude, 
+              joy, love, optimism, pride, relief
+    Negative: anger, annoyance, disappointment, disapproval, disgust, 
+              embarrassment, fear, grief, nervousness, remorse, sadness
+    Ambiguous: confusion, curiosity, desire, realization, surprise
+    Neutral: neutral
+
+Capabilities:
+    - Real-time emotion classification during conversations
+    - Emotional pattern recognition over time
+    - Sentiment tracking and history
+    - Empathy-driven response generation
+    - Relationship development through emotional awareness
+
+Architecture:
+    Uses SamLowe/roberta-base-go_emotions for classification, stores emotional
+    context in Qdrant as 1024-dimensional embeddings for semantic retrieval.
+
+Memory Format:
+    {
+        "memory_id": "em_x9y8z7w6",
+        "collection": "emotional",
+        "timestamp": "2025-11-04T20:30:00Z",
+        "content": {
+            "message": "...",
+            "emotions": {
+                "joy": 0.85,
+                "excitement": 0.72,
+                "gratitude": 0.45
+            },
+            "dominant_emotion": "joy"
+        }
+    }
+
+Usage:
+    Automatically classifies emotions in both user messages and AI responses.
+    Retrieves emotionally-similar past conversations for contextual awareness.
+
+Technical Details:
+    - Classification Model: roberta-base-go_emotions (28 classes)
+    - Embedding Model: mixedbread-ai/mxbai-embed-large-v1
+    - Multi-label: Messages can have multiple emotions
+    - Threshold: Configurable confidence threshold (default 0.3)
+
+Author: dotjax
+License: GPL-3.0
+Repository: https://github.com/dotjax/open-webui-memory-layers
+"""
+
 from __future__ import annotations
 
 import time
@@ -448,19 +505,19 @@ class Filter:
         boosted_memories.sort(key=lambda m: m["emotion_score"], reverse=True)
         return boosted_memories
 
-    def _format_kaelan_emotional_context(
+    def _format_assistant_emotional_context(
         self,
-        kaelan_emotion: str,
-        kaelan_confidence: float,
-        kaelan_memories: List[Dict[str, Any]],
+        assistant_emotion: str,
+        assistant_confidence: float,
+        assistant_memories: List[Dict[str, Any]],
         user_emotion: str,
         user_confidence: float
     ) -> str:
-        """Format emotional context as JSON according to Kaelan's cognitive architecture."""
+        """Format emotional context as JSON for the AI assistant's cognitive architecture."""
         # Create structured emotional memories
         similar_memories = []
-        for memory in kaelan_memories[:self.valves.max_emotional_memories]:
-            role_label = "Kaelan" if memory["role"] == "assistant" else "User"
+        for memory in assistant_memories[:self.valves.max_emotional_memories]:
+            role_label = "Assistant" if memory["role"] == "assistant" else "User"
             content = memory["content"]
             if len(content) > 200:
                 content = content[:200] + "..."
@@ -481,8 +538,8 @@ class Filter:
         
         # Create structured content
         memory_content = {
-            "kaelan_emotion": kaelan_emotion,
-            "kaelan_confidence": kaelan_confidence,
+            "assistant_emotion": assistant_emotion,
+            "assistant_confidence": assistant_confidence,
             "user_emotion": user_emotion,
             "user_confidence": user_confidence,
             "similar_memories": similar_memories,
@@ -584,12 +641,12 @@ class Filter:
             
             from qdrant_client.models import Filter as QdrantFilter, FieldCondition, MatchValue, OrderBy
             
-            kaelan_last_emotion = None
-            kaelan_emotion_probs = None
-            kaelan_confidence = 0.0
+            assistant_last_emotion = None
+            assistant_emotion_probs = None
+            assistant_confidence = 0.0
             
             try:
-                recent_kaelan = self.qdrant.scroll(
+                recent_assistant = self.qdrant.scroll(
                     collection_name=self.valves.collection_name,
                     scroll_filter=QdrantFilter(
                         must=[FieldCondition(key="role", match=MatchValue(value="assistant"))]
@@ -600,30 +657,30 @@ class Filter:
                     with_vectors=True
                 )
                 
-                if recent_kaelan and recent_kaelan[0]:
-                    last_point = recent_kaelan[0][0]
-                    kaelan_last_emotion = last_point.payload.get("top_emotion", "neutral")
-                    kaelan_confidence = last_point.payload.get("confidence", 0.0)
-                    kaelan_emotion_probs = np.array(last_point.vector)
+                if recent_assistant and recent_assistant[0]:
+                    last_point = recent_assistant[0][0]
+                    assistant_last_emotion = last_point.payload.get("top_emotion", "neutral")
+                    assistant_confidence = last_point.payload.get("confidence", 0.0)
+                    assistant_emotion_probs = np.array(last_point.vector)
                     
-                    self._log(f"Kaelan's last emotion: {kaelan_last_emotion} (confidence: {kaelan_confidence:.3f})", "DEBUG")
+                    self._log(f"Assistant's last emotion: {assistant_last_emotion} (confidence: {assistant_confidence:.3f})", "DEBUG")
             except Exception as exc:
-                self._log(f"Could not retrieve Kaelan's last emotion: {exc}", "DEBUG")
+                self._log(f"Could not retrieve assistant's last emotion: {exc}", "DEBUG")
                 label_count = self._label_count or len(EMOTION_LABELS)
-                kaelan_emotion_probs = np.zeros(label_count)
-                kaelan_emotion_probs[-1] = 1.0
-                kaelan_last_emotion = "neutral"
-                kaelan_confidence = 1.0
+                assistant_emotion_probs = np.zeros(label_count)
+                assistant_emotion_probs[-1] = 1.0
+                assistant_last_emotion = "neutral"
+                assistant_confidence = 1.0
             
             emotional_memories = []
-            if self.valves.inject_emotional_context and kaelan_emotion_probs is not None:
-                self._log("Retrieving Kaelan's emotional memories for continuity", "DEBUG")
+            if self.valves.inject_emotional_context and assistant_emotion_probs is not None:
+                self._log("Retrieving assistant's emotional memories for continuity", "DEBUG")
                 emotional_memories = self._retrieve_emotional_memories(
-                    kaelan_emotion_probs, 
-                    kaelan_last_emotion, 
-                    kaelan_confidence
+                    assistant_emotion_probs, 
+                    assistant_last_emotion, 
+                    assistant_confidence
                 )
-                self._log(f"Retrieved {len(emotional_memories)} of Kaelan's emotional memories", "DEBUG")
+                self._log(f"Retrieved {len(emotional_memories)} of assistant's emotional memories", "DEBUG")
             
             user_probs, user_emotion, user_confidence = self._analyze_emotion(user_message)
             self._log(f"User's emotion: {user_emotion} (confidence: {user_confidence:.3f})", "DEBUG")
@@ -636,23 +693,23 @@ class Filter:
                 episodic_point_id=None
             )
             
-            if emotional_memories or kaelan_last_emotion:
-                emotional_context = self._format_kaelan_emotional_context(
-                    kaelan_last_emotion,
-                    kaelan_confidence,
+            if emotional_memories or assistant_last_emotion:
+                emotional_context = self._format_assistant_emotional_context(
+                    assistant_last_emotion,
+                    assistant_confidence,
                     emotional_memories,
                     user_emotion,
                     user_confidence
                 )
                 
                 append_system_context(messages, emotional_context)
-                self._log("Injected Kaelan's emotional context into conversation", "DEBUG")
+                self._log("Injected assistant's emotional context into conversation", "DEBUG")
             
             if "metadata" not in body:
                 body["metadata"] = {}
             body["metadata"]["_emotion_analyzed"] = True
-            body["metadata"]["_kaelan_emotion"] = kaelan_last_emotion
-            body["metadata"]["_kaelan_confidence"] = kaelan_confidence
+            body["metadata"]["_assistant_emotion"] = assistant_last_emotion
+            body["metadata"]["_assistant_confidence"] = assistant_confidence
             body["metadata"]["_user_emotion"] = user_emotion
             body["metadata"]["_user_confidence"] = user_confidence
             

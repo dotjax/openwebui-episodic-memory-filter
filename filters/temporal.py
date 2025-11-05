@@ -405,7 +405,7 @@ class Filter:
         self._log(f"Final result: {len(final_result)} memories selected", "DEBUG")
         return final_result
     def _format_temporal_memories(self, weighted_memories: List[Dict[str, Any]]) -> str:
-        """Format temporal memories as JSON according to Kaelan's cognitive architecture."""
+        """Format temporal memories as JSON for the AI assistant's cognitive architecture."""
         if not weighted_memories:
             return "[]"
         json_memories = []
@@ -593,7 +593,7 @@ class Filter:
         emotional_arc: List[Dict[str, Any]], 
         turning_points: List[Dict[str, Any]]
     ) -> str:
-        """Format current narrative context as JSON according to Kaelan's cognitive architecture."""
+        """Format current narrative context as JSON for the AI assistant's cognitive architecture."""
         if not self.valves.inject_narrative_context:
             return "{}"
         rhythm = rhythm_data.get("rhythm", "steady")

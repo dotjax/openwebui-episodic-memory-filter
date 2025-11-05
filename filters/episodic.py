@@ -1,3 +1,52 @@
+"""
+Episodic Memory Filter for Open WebUI
+
+This filter implements episodic memory - the storage and retrieval of specific 
+conversational exchanges with temporal context. It enables AI systems to:
+
+- Remember previous conversations with users
+- Maintain conversation continuity across sessions
+- Provide contextual responses based on past interactions
+- Develop user-specific understanding over time
+
+Architecture:
+    Uses Qdrant vector database to store conversation memories as embeddings.
+    Each memory includes:
+    - Message content and role (user/assistant)
+    - Timestamp with timezone awareness
+    - User identification for isolation
+    - Conversation threading
+
+Usage:
+    This filter works automatically when installed in Open WebUI:
+    1. Inlet: Retrieves relevant past memories before AI response
+    2. Outlet: Stores new exchange after AI response
+    
+    Configuration via Valves in Open WebUI admin panel.
+
+Memory Format:
+    {
+        "memory_id": "ep_a1b2c3d4",
+        "collection": "episodic",
+        "timestamp": "2025-11-04T20:30:00Z",
+        "content": {
+            "role": "user",
+            "message": "...",
+            "response": "..."
+        }
+    }
+
+Technical Details:
+    - Embedding Model: mixedbread-ai/mxbai-embed-large-v1 (1024 dims)
+    - Similarity: Cosine distance
+    - Storage: Qdrant vector database
+    - Lazy Loading: Models load on first use
+
+Author: dotjax
+License: GPL-3.0
+Repository: https://github.com/dotjax/open-webui-memory-layers
+"""
+
 from __future__ import annotations
 
 import time
@@ -21,7 +70,7 @@ from sentence_transformers import SentenceTransformer
 from zoneinfo import ZoneInfo
 
 MODEL_VECTOR_SIZE = 1024
-KAELAN_ID = "kaelan"
+ASSISTANT_ID = "assistant"  # Generic assistant identifier
 USER_METADATA_KEY = "_episodic_user_id"
 USER_MESSAGE_KEY = "_episodic_user_message"
 USER_CONVERSATION_KEY = "_episodic_user_conversation_id"
@@ -377,7 +426,7 @@ class Filter:
             "timestamp": timestamp,
             "conversation_id": conversation_id,
             "user_id": user_id,
-            "kaelan_id": KAELAN_ID,
+            "assistant_id": ASSISTANT_ID,
             "message_type": message_type,
         }
         if linked_ids:
@@ -477,7 +526,7 @@ class Filter:
         return [base + (1 if idx < remainder else 0) for idx in range(buckets)]
 
     def _format_memories(self, memories: Sequence[Dict[str, Any]]) -> str:
-        """Format episodic memories as JSON according to Kaelan's cognitive architecture."""
+        """Format episodic memories as JSON for the AI assistant's cognitive architecture."""
         if not memories:
             return "[]"
         
@@ -489,13 +538,13 @@ class Filter:
             
             # Determine participants based on role
             if role == "assistant":
-                participants = ["Kaelan", "User"]
-                speaker = "Kaelan"
+                participants = ["Assistant", "User"]
+                speaker = "Assistant"
             elif role == "user":
-                participants = ["User", "Kaelan"]
+                participants = ["User", "Assistant"]
                 speaker = "User"
             else:  # pair or conversation
-                participants = ["Kaelan", "User"]
+                participants = ["Assistant", "User"]
                 speaker = "Conversation"
             
             # Create structured content

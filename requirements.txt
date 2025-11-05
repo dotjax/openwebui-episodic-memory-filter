@@ -1,0 +1,16 @@
+# Core dependencies
+qdrant-client>=1.7.0
+sentence-transformers>=2.2.0
+transformers>=4.35.0
+torch>=2.0.0
+pydantic>=2.0.0
+numpy>=1.24.0
+
+# Optional but recommended
+accelerate>=0.24.0  # Faster model loading
+safetensors>=0.4.0  # Secure model storage
+
+# Development dependencies (optional)
+pytest>=7.4.0
+black>=23.0.0
+ruff>=0.1.0

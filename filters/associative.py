@@ -361,7 +361,7 @@ class Filter:
             return []
 
     def _format_associations(self, associations: List[Dict[str, Any]]) -> str:
-        """Format associative memories as JSON according to Kaelan's cognitive architecture."""
+        """Format associative memories as JSON for the AI assistant's cognitive architecture."""
         if not associations:
             return "[]"
         
